@@ -6,7 +6,9 @@ var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/res
 
 // Authorization scopes required by the API; multiple scopes can be
 // included, separated by spaces.
-var SCOPES = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+var SCOPES = 
+  'https://www.googleapis.com/auth/drive.metadata.readonly ' +
+  'https://www.googleapis.com/auth/drive.file';
 
 var authorizeButton = document.getElementById('authorize-button');
 var signoutButton = document.getElementById('signout-button');
@@ -47,6 +49,8 @@ function updateSigninStatus(isSignedIn) {
     authorizeButton.style.display = 'none';
     signoutButton.style.display = 'block';
     listFiles();
+    createFolder();
+    createFile();
   } else {
     authorizeButton.style.display = 'block';
     signoutButton.style.display = 'none';
@@ -100,3 +104,37 @@ function listFiles() {
   });
 }
 
+function createFolder() {
+  var fileMetadata = {
+    'name' : 'Drive Quickstart',
+    'mimeType' : 'application/vnd.google-apps.folder'
+  };
+  console.log('createFolder()')
+  var request = gapi.client.drive.files.create({
+     resource: fileMetadata,
+     fields: 'id'
+  });
+
+  request.execute(function(response) {
+    console.log(response);
+  });
+
+}
+
+function createFile() {
+  var fileMetadata = {
+    'name': 'quickstart.db'
+  };
+  var media = {
+    mimeType: 'text/plain',
+    body: Date.now().toString()
+  };
+  gapi.client.drive.files.create({
+     resource: fileMetadata,
+     media: media
+  }).then(function(response) {
+    console.log(response)
+  }, function(reason) {
+    console.log(reason)
+  });
+}
