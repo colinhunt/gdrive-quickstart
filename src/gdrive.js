@@ -49,7 +49,7 @@ function updateSigninStatus(isSignedIn) {
     authorizeButton.style.display = 'none';
     signoutButton.style.display = 'block';
     listFiles();
-    createFolder();
+    // createFolder();
     createFile();
   } else {
     authorizeButton.style.display = 'block';
@@ -107,34 +107,45 @@ function listFiles() {
 function createFolder() {
   var fileMetadata = {
     'name' : 'Drive Quickstart',
-    'mimeType' : 'application/vnd.google-apps.folder'
+    'mimeType' : 'application/vnd.google-apps.folder',
   };
   console.log('createFolder()')
   var request = gapi.client.drive.files.create({
      resource: fileMetadata,
-     fields: 'id'
+     fields: 'id',
   });
 
   request.execute(function(response) {
     console.log(response);
+    folder_id = response.id;
   });
 
 }
 
 function createFile() {
-  var fileMetadata = {
-    'name': 'quickstart.db'
-  };
-  var media = {
-    mimeType: 'text/plain',
-    body: Date.now().toString()
-  };
   gapi.client.drive.files.create({
-     resource: fileMetadata,
-     media: media
-  }).then(function(response) {
-    console.log(response)
-  }, function(reason) {
-    console.log(reason)
-  });
+    name: 'quickstart.json',
+    parents: ['0B3cmYHgSA9yEaHpwSVJwb2s5Nms'],
+    params: {
+      uploadType: 'media'
+    },
+    fields: 'id'
+  }).then(function(result) {
+    console.log('File create: ', result)
+    save(result.result.id).then(function(result) {
+      console.log('File update', result)
+    })
+  })
+}
+
+function save(fileId) {
+  return gapi.client
+    .request({
+      path: '/upload/drive/v3/files/' + fileId,
+      method: 'PATCH',
+      params: {
+        uploadType: 'media'
+      },
+      body: {"key": "value", "list": [1,2,3]}
+    })
 }
