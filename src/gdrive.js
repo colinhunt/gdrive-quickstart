@@ -48,9 +48,10 @@ function updateSigninStatus(isSignedIn) {
   if (isSignedIn) {
     authorizeButton.style.display = 'none';
     signoutButton.style.display = 'block';
-    listFiles();
-    // createFolder();
-    createFile();
+    createAndLoadFile();
+    // appendPre(data);
+    // createFile();
+
   } else {
     authorizeButton.style.display = 'block';
     signoutButton.style.display = 'none';
@@ -104,8 +105,6 @@ function listFiles() {
   });
 }
 
-var folder_id;
-
 function createFolder() {
   var fileMetadata = {
     'name' : 'Drive Quickstart',
@@ -115,19 +114,63 @@ function createFolder() {
   var request = gapi.client.drive.files.create({
      resource: fileMetadata,
      fields: 'id',
+  }).then(function(result) {
+    return onFolderList({result: {files: [result.result]}})
   });
-
-  request.execute(function(response) {
-    console.log(response);
-    folder_id = response.id;
-  });
-
 }
+
+function onFolderList(result) {
+  console.log('onFolderList', result)
+  const folder = result.result.files[0]
+  if (!folder) {
+    return createFolder();
+  }
+  console.log("found folder", folder)
+
+  gapi.client.drive.files.list({
+    q: `name = 'quickstart.json' and '${folder.id}' in parents and trashed = false `,
+    fields: 'files(id, name, parents)',
+    spaces: 'drive'
+  }).then(onFileList(folder.id));
+}
+
+function onFileList(folderId) {
+  function _onFileList(result) {
+    console.log('onFileList', result)
+    const file = result.result.files[0]
+    if (!file) {
+      return createFile(folderId);
+    }
+    console.log('Found file: ', file.name)
+    appendPre(file.name)
+    gapi.client.drive.files.get({
+      fileId: file.id,
+      alt: 'media'
+    }).then(onFileGet);
+  }
+  return _onFileList;
+}
+
+function onFileGet(result) {
+  console.log('onFileGet', result.result)
+  appendPre(result.result)
+}
+
 // http://stackoverflow.com/questions/40387834/how-to-create-google-docs-document-with-text-using-google-drive-javascript-sdk
-function createFile() {
+function createAndLoadFile() {
+  console.log('createAndLoadFile')
+  gapi.client.drive.files.list({
+    q: "name = 'Drive Quickstart' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+    fields: 'files(id, name)',
+    spaces: 'drive'
+  }).then(onFolderList);
+}
+
+function createFile(parent) {
+  console.log('createFile', parent)
   gapi.client.drive.files.create({
     name: 'quickstart.json',
-    parents: ['0B3cmYHgSA9yEaHpwSVJwb2s5Nms'],
+    parents: [parent],
     params: {
       uploadType: 'media'
     },
@@ -136,11 +179,13 @@ function createFile() {
     console.log('File create: ', result)
     save(result.result.id).then(function(result) {
       console.log('File update', result)
+      onFileList(parent)({result: {files: [result.result]}})
     })
   })
 }
 
 function save(fileId) {
+  console.log('save', fileId)
   return gapi.client
     .request({
       path: '/upload/drive/v3/files/' + fileId,
