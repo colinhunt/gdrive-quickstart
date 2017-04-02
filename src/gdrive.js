@@ -12,6 +12,10 @@ var SCOPES =
 
 var authorizeButton = document.getElementById('authorize-button');
 var signoutButton = document.getElementById('signout-button');
+var updateButton = document.getElementById('update-button');
+
+let file;
+let folder;
 
 /**
  *  On load, called to load the auth2 library and API client library.
@@ -37,6 +41,7 @@ function initClient() {
     updateSigninStatus(gapi.auth2.getAuthInstance().isSignedIn.get());
     authorizeButton.onclick = handleAuthClick;
     signoutButton.onclick = handleSignoutClick;
+    updateButton.onclick = handleUpdateClick;
   });
 }
 
@@ -70,6 +75,10 @@ function handleAuthClick(event) {
  */
 function handleSignoutClick(event) {
   gapi.auth2.getAuthInstance().signOut();
+}
+
+function handleUpdateClick(event) {
+  onFileList(folder.id)({result: {files: [file]}})
 }
 
 /**
@@ -121,7 +130,7 @@ function createFolder() {
 
 function onFolderList(result) {
   console.log('onFolderList', result)
-  const folder = result.result.files[0]
+  folder = result.result.files[0]
   if (!folder) {
     return createFolder();
   }
@@ -137,7 +146,7 @@ function onFolderList(result) {
 function onFileList(folderId) {
   function _onFileList(result) {
     console.log('onFileList', result)
-    const file = result.result.files[0]
+    file = result.result.files[0]
     if (!file) {
       return createFile(folderId);
     }
@@ -146,14 +155,25 @@ function onFileList(folderId) {
     gapi.client.drive.files.get({
       fileId: file.id,
       alt: 'media'
-    }).then(onFileGet);
+    }).then(function (result) {
+      onFileGet(file.id, result)
+    });
   }
   return _onFileList;
 }
 
-function onFileGet(result) {
-  console.log('onFileGet', result.result)
-  appendPre(result.result)
+function onFileGet(fileId, result) {
+  console.log('onFileGet', fileId, result)
+  const data = result.result;
+
+  appendPre(JSON.stringify(data));
+
+  data.key += 1;
+  data.list.push(data.key);
+
+  save(fileId, data).then(function(result) {
+    console.log('onFileGet save', result)
+  });
 }
 
 // http://stackoverflow.com/questions/40387834/how-to-create-google-docs-document-with-text-using-google-drive-javascript-sdk
@@ -177,14 +197,14 @@ function createFile(parent) {
     fields: 'id'
   }).then(function(result) {
     console.log('File create: ', result)
-    save(result.result.id).then(function(result) {
+    save(result.result.id, {"key": 0, "list": [0]}).then(function(result) {
       console.log('File update', result)
       onFileList(parent)({result: {files: [result.result]}})
     })
   })
 }
 
-function save(fileId) {
+function save(fileId, data) {
   console.log('save', fileId)
   return gapi.client
     .request({
@@ -193,6 +213,6 @@ function save(fileId) {
       params: {
         uploadType: 'media'
       },
-      body: {"key": "value", "list": [1,2,3]}
+      body: data
     })
 }
